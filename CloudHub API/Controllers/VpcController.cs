@@ -13,7 +13,6 @@ public class VpcController (IAmazonEC2 ec2Client) : ControllerBase
     {
         try
         {
-            // Заявка за извличане на VPC-тата
             var request = new DescribeVpcsRequest();
             var response = await ec2Client.DescribeVpcsAsync(request);
 

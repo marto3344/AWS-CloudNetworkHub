@@ -5,7 +5,7 @@ namespace CloudHub_API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class InfrastructureController (IEc2MonitorService ec2MonitorService) : ControllerBase
+public class InfrastructureController (IEc2MonitorService ec2MonitorService, ILogger<InfrastructureController> logger) : ControllerBase
 {
     
     [HttpGet("instances")]
@@ -18,7 +18,8 @@ public class InfrastructureController (IEc2MonitorService ec2MonitorService) : C
         }
         catch (Exception e)
         {
-            return StatusCode(500, e.Message);
+            logger.LogError(e, "Error in GetInstances endpoint");
+            return StatusCode(500, "Internal server error");
         }
     }
     
@@ -53,6 +54,21 @@ public class InfrastructureController (IEc2MonitorService ec2MonitorService) : C
         catch (Exception e)
         {
             return StatusCode(500, new { error = e.Message });
+        }
+    }
+    
+    [HttpPost("instances/{id}/start")]
+    public async Task<IActionResult> StartInstance(string id)
+    {
+        try
+        {
+            await ec2MonitorService.StartInstanceAsync(id);
+            return Ok(new { message = $"Instance {id} is starting." });
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Error in StartInstance endpoint");
+            return StatusCode(500, e.Message);
         }
     }
     

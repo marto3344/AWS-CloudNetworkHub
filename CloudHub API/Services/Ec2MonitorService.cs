@@ -26,18 +26,21 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         }
         
         var instances = new List<Ec2Instance>();
+        if (res?.Reservations == null)
+            return instances;
+        
         foreach (var reservation in res.Reservations)
         {
             foreach (var instance in reservation.Instances)
             {
-                var nameTag = instance.Tags
+                var nameTag = instance.Tags?
                     .FirstOrDefault(t => t.Key.Equals("Name", StringComparison.OrdinalIgnoreCase))?.Value;
                 instances.Add(new Ec2Instance
                 {
                     InstanceId = instance.InstanceId,
                     Name = nameTag ?? "Unnamed Instance",
-                    Status = instance.State.Name,
-                    InstanceType = instance.InstanceType,
+                    Status = instance.State?.Name ?? "Unknown",
+                    InstanceType = instance.InstanceType ?? "Unknown",
                     PublicIpAddress = instance.PublicIpAddress,
                     PrivateIpAddress = instance.PrivateIpAddress
                 });
@@ -56,7 +59,7 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to stop EC2 instance {InstanceId}", instanceId);
+            logger.LogError(ex, $"Failed to stop EC2 instance {instanceId}. {ex.Message}");
             throw new Exception("Could not execute stop command.");
         }
     }
@@ -71,8 +74,28 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to reboot EC2 instance {InstanceId}", instanceId);
+            logger.LogError(ex, $"Failed to reboot EC2 instance {instanceId}. {ex.Message}");
             throw new Exception("Could not execute reboot command.");
+        }
+    }
+    
+    public async Task StartInstanceAsync(string instanceId)
+    {
+        try
+        {
+            var req = new StartInstancesRequest(){ InstanceIds = [instanceId] };
+            var res = await ec2Client.StartInstancesAsync(req);
+            
+        }
+        catch (AmazonEC2Exception awsEx)
+        {
+            logger.LogError(awsEx, $"AWS EC2 Error: {awsEx.Message}. Code: {awsEx.ErrorCode}");
+            throw new Exception("Unable to start instance due to a provider error.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, $"Failed to start EC2 instance {instanceId}. {ex.Message}");
+            throw new Exception("Could not execute start command.");
         }
     }
 }

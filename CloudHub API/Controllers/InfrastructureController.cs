@@ -22,5 +22,38 @@ public class InfrastructureController (IEc2MonitorService ec2MonitorService) : C
         }
     }
     
+    [HttpPost("instances/{id}/stop")]
+    public async Task<IActionResult> StopInstance(string id)
+    {
+        try
+        {
+            var result = await ec2MonitorService.StopInstanceAsync(id);
+            if (result)
+                return Ok(new { message = $"Instance {id} is stopping." });
+                
+            return BadRequest(new { error = $"Could not stop instance {id}." });
+        }
+        catch (Exception e)
+        {
+            return StatusCode(500, new { error = e.Message });
+        }
+    }
+    
+    [HttpPost("instances/{id}/reboot")]
+    public async Task<IActionResult> RebootInstance(string id)
+    {
+        try
+        {
+            var result = await ec2MonitorService.RebootInstanceAsync(id);
+            if (result)
+                return Ok(new { message = $"Reboot command sent to instance {id}." });
+                
+            return BadRequest(new { error = $"Could not reboot instance {id}." });
+        }
+        catch (Exception e)
+        {
+            return StatusCode(500, new { error = e.Message });
+        }
+    }
     
 }

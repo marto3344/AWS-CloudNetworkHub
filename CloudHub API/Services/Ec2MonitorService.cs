@@ -45,4 +45,34 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         }
         return instances;
     }
+
+    public async Task<bool> StopInstanceAsync(string instanceId)
+    {
+        try
+        {
+            var req = new StopInstancesRequest { InstanceIds = [instanceId] };
+            var res = await ec2Client.StopInstancesAsync(req);
+            return res.StoppingInstances.Any();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to stop EC2 instance {InstanceId}", instanceId);
+            throw new Exception("Could not execute stop command.");
+        }
+    }
+
+    public async Task<bool> RebootInstanceAsync(string instanceId)
+    {
+        try
+        {
+            var req = new RebootInstancesRequest { InstanceIds = [instanceId] };
+            var res = await ec2Client.RebootInstancesAsync(req);
+            return res.HttpStatusCode == System.Net.HttpStatusCode.OK;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to reboot EC2 instance {InstanceId}", instanceId);
+            throw new Exception("Could not execute reboot command.");
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using Amazon.EC2;
+using CloudHub_API.Services;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddDefaultAWSOptions(awsOptions);
 builder.Services.AddAWSService<IAmazonEC2>();
+builder.Services.AddScoped<IEc2MonitorService, Ec2MonitorService>();
 
 var app = builder.Build();
 

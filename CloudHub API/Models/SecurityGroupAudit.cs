@@ -6,7 +6,7 @@ public class SecurityGroupAudit
     public string GroupName { get; set; } = string.Empty;
     public string VpcId { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    
     public bool IsDangerous { get; set; }
+    public List<DangerousRule> DangerousRules { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
 }

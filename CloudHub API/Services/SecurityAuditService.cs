@@ -80,25 +80,33 @@ public class SecurityAuditService (IAmazonEC2 ec2Client, ILogger<SecurityAuditSe
     {
         foreach (var range in rule.Ipv4Ranges.Where(r => r.CidrIp == "0.0.0.0/0"))
         {
-            if (rule.IpProtocol == "-1")
-            {
-                dangerousRules.Add(new DangerousRule
-                {
-                    Protocol = "All Traffic",
-                    FromPort = 0,
-                    ToPort = 65535,
-                    CidrRange = range.CidrIp,
-                    Reason = "All ports and protocols are open to the world"
-                });
-                break;
-            }
-            ScanPorts(range, rule, dangerousRules);
+            CheckRange(rule,range.CidrIp, dangerousRules);
+        }
+        foreach (var range in rule.Ipv6Ranges.Where( r => r.CidrIpv6 == "::/0"))
+        {
+            CheckRange(rule,range.CidrIpv6, dangerousRules);
         }
     }
 
+    private void CheckRange(IpPermission rule, string cidr, List<DangerousRule> dangerousRules)
+    {
+        if (rule.IpProtocol == "-1")
+        {
+            dangerousRules.Add(new DangerousRule
+            {
+                Protocol = "All Traffic",
+                FromPort = 0,
+                ToPort = 65535,
+                CidrRange = cidr,
+                Reason = "All ports and protocols are open to the world"
+            });
+            return;
+        }
+        ScanPorts(rule, cidr, dangerousRules);
+    }
     private void ScanPorts(
-        IpRange range,
-        IpPermission rule, 
+        IpPermission rule,
+        string cidr,
         List<DangerousRule> 
             dangerousRules)
     {
@@ -111,7 +119,7 @@ public class SecurityAuditService (IAmazonEC2 ec2Client, ILogger<SecurityAuditSe
                     Protocol = rule.IpProtocol,
                     FromPort = port,
                     ToPort = port,
-                    CidrRange = range.CidrIp,
+                    CidrRange = cidr,
                     Reason = GetDangerReason(port)
                 });
             }

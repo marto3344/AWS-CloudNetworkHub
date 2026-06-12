@@ -4,7 +4,10 @@ using CloudHub_API.Models;
 
 namespace CloudHub_API.Services;
 
-public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService> logger) : IEc2MonitorService
+public class Ec2MonitorService (
+    IAmazonEC2 ec2Client,
+    IAuditLogService auditLogService,
+    ILogger<Ec2MonitorService> logger) : IEc2MonitorService
 {
     public async Task<IEnumerable<Ec2Instance>> GetInstancesAsync()
     {
@@ -55,7 +58,12 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         {
             var req = new StopInstancesRequest { InstanceIds = [instanceId] };
             var res = await ec2Client.StopInstancesAsync(req);
-            return res.StoppingInstances.Any();
+            bool isStopping = res.StoppingInstances.Any();
+            if (isStopping)
+            {
+                await auditLogService.LogAsync("StopInstance", $"Instance {instanceId} stopped.", "Warning");
+            }
+            return isStopping;
         }
         catch (Exception ex)
         {
@@ -70,7 +78,10 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         {
             var req = new RebootInstancesRequest { InstanceIds = [instanceId] };
             var res = await ec2Client.RebootInstancesAsync(req);
-            return res.HttpStatusCode == System.Net.HttpStatusCode.OK;
+            bool isRebooting = res.HttpStatusCode == System.Net.HttpStatusCode.OK;
+            if(isRebooting)
+                await auditLogService.LogAsync("RebootInstance", $"Instance {instanceId} rebooted.", "Warning");
+            return isRebooting;
         }
         catch (Exception ex)
         {
@@ -85,7 +96,7 @@ public class Ec2MonitorService (IAmazonEC2 ec2Client, ILogger<Ec2MonitorService>
         {
             var req = new StartInstancesRequest(){ InstanceIds = [instanceId] };
             var res = await ec2Client.StartInstancesAsync(req);
-            
+            await auditLogService.LogAsync("StartInstance", $"Instance {instanceId} started.", "Info");
         }
         catch (AmazonEC2Exception awsEx)
         {

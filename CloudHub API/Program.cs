@@ -13,6 +13,7 @@ builder.Services.AddAWSService<IAmazonEC2>();
 builder.Services.AddAWSService<IAmazonSecurityTokenService>();
 builder.Services.AddScoped<IEc2MonitorService, Ec2MonitorService>();
 builder.Services.AddScoped<ISystemStatusService, SystemStatusService>();
+builder.Services.AddScoped<ISecurityAuditService, SecurityAuditService>();
 
 var app = builder.Build();
 

@@ -62,7 +62,7 @@ public class SecurityAuditService (IAmazonEC2 ec2Client, ILogger<SecurityAuditSe
     {
         var dangerousRules = new List<DangerousRule>();
 
-        foreach (var rule in sg.IpPermissions)
+        foreach (var rule in sg.IpPermissions ?? [])
         {
             ScanRule(rule, dangerousRules);
         }
@@ -71,6 +71,7 @@ public class SecurityAuditService (IAmazonEC2 ec2Client, ILogger<SecurityAuditSe
             GroupId = sg.GroupId,
             GroupName = sg.GroupName,
             VpcId = sg.VpcId,
+            Description = sg.Description,
             IsDangerous = dangerousRules.Any(),
             DangerousRules = dangerousRules
         };
@@ -78,11 +79,11 @@ public class SecurityAuditService (IAmazonEC2 ec2Client, ILogger<SecurityAuditSe
 
     private void ScanRule(IpPermission rule, List<DangerousRule> dangerousRules)
     {
-        foreach (var range in rule.Ipv4Ranges.Where(r => r.CidrIp == "0.0.0.0/0"))
+        foreach (var range in (rule.Ipv4Ranges ?? []).Where(r => r.CidrIp == "0.0.0.0/0"))
         {
             CheckRange(rule,range.CidrIp, dangerousRules);
         }
-        foreach (var range in rule.Ipv6Ranges.Where( r => r.CidrIpv6 == "::/0"))
+        foreach (var range in (rule.Ipv6Ranges ?? []).Where( r => r.CidrIpv6 == "::/0"))
         {
             CheckRange(rule,range.CidrIpv6, dangerousRules);
         }

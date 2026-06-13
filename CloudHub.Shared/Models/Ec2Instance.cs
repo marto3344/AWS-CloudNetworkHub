@@ -8,4 +8,5 @@ public class Ec2Instance
     public string InstanceType { get; set; } = string.Empty; 
     public string? PublicIpAddress { get; set; }
     public string? PrivateIpAddress { get; set; }
+    public DateTime? LaunchTime { get; set; }
 }

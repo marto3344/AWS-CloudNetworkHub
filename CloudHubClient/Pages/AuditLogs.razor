@@ -1,0 +1,158 @@
+﻿@page "/audit-logs"
+@inject HttpClient Http
+
+<h3>Audit Logs</h3>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    <div class="d-flex gap-3 mb-3">
+        <div>
+            <label class="form-label">Level</label>
+            <select class="form-select w-auto" @bind="level" @bind:after="LoadLogs">
+                <option value="">All</option>
+                <option value="Info">Info</option>
+                <option value="Warning">Warning</option>
+                <option value="Error">Error</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Limit</label>
+            <select class="form-select w-auto" @bind="limit" @bind:after="LoadLogs">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    @if (!logs.Any())
+    {
+        <div class="alert alert-info">No audit logs found.</div>
+    }
+    else
+    {
+        <table class="table table-dark table-striped table-hover">
+            <thead>
+            <tr>
+                <th @onclick='() => Sort("timestamp")' style="cursor:pointer">
+                    Timestamp @SortIcon("timestamp")
+                </th>
+                <th @onclick='() => Sort("eventtype")' style="cursor:pointer">
+                    Event Type @SortIcon("eventtype")
+                </th>
+                <th @onclick='() => Sort("level")' style="cursor:pointer">
+                    Level @SortIcon("level")
+                </th>
+                <th>Details</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var log in SortedLogs)
+            {
+                <tr>
+                    <td>@FormatTimestamp(log.Timestamp)</td>
+                    <td><code>@log.EventType</code></td>
+                    <td>
+                        <span class="badge @GetLevelBadge(log.Level)">
+                            @log.Level
+                        </span>
+                    </td>
+                    <td>@log.Details</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<AuditLog> logs = new();
+    private bool loading = true;
+    private string? error;
+    private string level = "";
+    private int limit = 50;
+    private string sortColumn = "timestamp";
+    private bool sortAscending = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogs();
+    }
+    
+    private async Task LoadLogs()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+
+            var url = $"api/traffic/audit-logs?limit={limit}";
+            if (!string.IsNullOrEmpty(level))
+                url += $"&level={level}";
+
+            logs = await Http.GetFromJsonAsync<List<AuditLog>>(url) ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load audit logs: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string FormatTimestamp(string timestamp)
+    {
+        return DateTime.TryParse(timestamp, out var dt)
+            ? dt.ToString("dd.MM.yyyy HH:mm:ss")
+            : timestamp;
+    }
+
+    private string GetLevelBadge(string level) => level switch
+    {
+        "Info" => "bg-primary",
+        "Warning" => "bg-warning text-dark",
+        "Error" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private IEnumerable<AuditLog> SortedLogs => sortColumn switch
+    {
+        "timestamp" => sortAscending
+            ? logs.OrderBy(l => l.Timestamp)
+            : logs.OrderByDescending(l => l.Timestamp),
+        "eventtype" => sortAscending
+            ? logs.OrderBy(l => l.EventType)
+            : logs.OrderByDescending(l => l.EventType),
+        "level" => sortAscending
+            ? logs.OrderBy(l => l.Level)
+            : logs.OrderByDescending(l => l.Level),
+        _ => logs
+    };
+
+    private void Sort(string column)
+    {
+        if (sortColumn == column)
+            sortAscending = !sortAscending;
+        else
+        {
+            sortColumn = column;
+            sortAscending = true;
+        }
+    }
+
+    private string SortIcon(string column)
+    {
+        if (sortColumn != column) return "⇅";
+        return sortAscending ? "↑" : "↓";
+    }
+}

@@ -1,0 +1,113 @@
+﻿@page "/traffic"
+@inject HttpClient Http
+
+<h3>Network Traffic</h3>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label">Time Range</label>
+        <select class="form-select w-auto" @bind="hours" @bind:after="LoadMetrics">
+            <option value="1">Last 1 hour</option>
+            <option value="6">Last 6 hours</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="72">Last 3 days</option>
+            <option value="168">Last 7 days</option>
+        </select>
+    </div>
+
+    <table class="table table-dark table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Instance</th>
+                <th>CPU %</th>
+                <th>Network In</th>
+                <th>Network Out</th>
+                <th>Packets In</th>
+                <th>Packets Out</th>
+                <th>Disk Read</th>
+                <th>Disk Write</th>
+                <th>Disk Read Ops</th>
+                <th>Disk Write Ops</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in metrics)
+            {
+                <tr>
+                    <td>
+                        <strong>@m.InstanceName</strong>
+                        <br/>
+                        <code class="text-muted" style="font-size: 0.75rem">@m.InstanceId</code>
+                    </td>
+                    <td>
+                        <span class="badge @GetCpuBadge(m.CpuUtilization)">
+                            @m.CpuUtilization.ToString("F1")%
+                        </span>
+                    </td>
+                    <td>@FormatBytes(m.NetworkIn)</td>
+                    <td>@FormatBytes(m.NetworkOut)</td>
+                    <td>@m.NetworkPacketsIn.ToString("N0")</td>
+                    <td>@m.NetworkPacketsOut.ToString("N0")</td>
+                    <td>@FormatBytes(m.DiskReadBytes)</td>
+                    <td>@FormatBytes(m.DiskWriteBytes)</td>
+                    <td>@m.DiskReadOps.ToString("N0")</td>
+                    <td>@m.DiskWriteOps.ToString("N0")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<NetworkMetrics> metrics = new();
+    private bool loading = true;
+    private string? error;
+    private int hours = 24;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMetrics();
+    }
+    
+    private async Task LoadMetrics()
+    {
+        try
+        {
+            loading = true;
+            error = null;
+            metrics = await Http.GetFromJsonAsync<List<NetworkMetrics>>($"api/traffic/metrics?hours={hours}") ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load metrics: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string FormatBytes(double bytes)
+    {
+        if (bytes == 0) return "0 B";
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        int i = (int)Math.Floor(Math.Log(bytes) / Math.Log(1024));
+        return $"{(bytes / Math.Pow(1024, i)):F1} {sizes[i]}";
+    }
+
+    private string GetCpuBadge(double cpu) => cpu switch
+    {
+        > 80 => "bg-danger",
+        > 50 => "bg-warning",
+        _ => "bg-success"
+    };
+}

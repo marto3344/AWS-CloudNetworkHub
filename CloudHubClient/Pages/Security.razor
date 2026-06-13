@@ -1,0 +1,124 @@
+﻿@page "/security"
+@inject HttpClient Http
+
+<h3>Network & Security</h3>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    <!-- Security Audit -->
+    <h5>Security Groups Audit</h5>
+    @foreach (var sg in audit)
+    {
+        <div class="card mb-2 @(sg.IsDangerous ? "border-danger" : "border-success")">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>@sg.GroupName</strong>
+                        <code class="ms-2">@sg.GroupId</code>
+                        <span class="ms-2 text-muted">VPC: @sg.VpcId</span>
+                    </div>
+                    <span class="badge @(sg.IsDangerous ? "bg-danger" : "bg-success")">
+                        @(sg.IsDangerous ? "⚠ Dangerous" : "✓ Safe")
+                    </span>
+                </div>
+
+                @if (sg.IsDangerous)
+                {
+                    <ul class="mt-2 mb-0">
+                        @foreach (var rule in sg.DangerousRules)
+                        {
+                            <li class="text-danger">
+                                @rule.Reason — Port @rule.FromPort · Protocol: @rule.Protocol · CIDR: @rule.CidrRange
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- VPCs -->
+    <h5 class="mt-4">VPCs & Subnets</h5>
+    @foreach (var vpc in vpcs)
+    {
+        <div class="card mb-3 border-secondary">
+            <div class="card-header d-flex justify-content-between">
+                <div>
+                    <strong>@vpc.Name</strong>
+                    <code class="ms-2">@vpc.VpcId</code>
+                    <span class="ms-2 text-muted">@vpc.CidrBlock</span>
+                </div>
+                @if (vpc.IsDefault is true)
+                {
+                    <span class="badge bg-secondary">Default</span>
+                }
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-dark table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Subnet ID</th>
+                            <th>Name</th>
+                            <th>CIDR</th>
+                            <th>Availability Zone</th>
+                            <th>Public</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var subnet in vpc.Subnets)
+                        {
+                            <tr>
+                                <td><code>@subnet.SubnetId</code></td>
+                                <td>@subnet.Name</td>
+                                <td>@subnet.CidrBlock</td>
+                                <td>@subnet.AvailabilityZone</td>
+                                <td>
+                                    <span class="badge @(subnet.IsPublic is true ? "bg-warning" : "bg-secondary")">
+                                        @(subnet.IsPublic is true ? "Public" : "Private")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<SecurityGroupAudit> audit = new();
+    private List<VpcInfo> vpcs = new();
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var auditTask = Http.GetFromJsonAsync<List<SecurityGroupAudit>>("api/security/audit");
+            var vpcsTask = Http.GetFromJsonAsync<List<VpcInfo>>("api/security/vpcs");
+
+            await Task.WhenAll(auditTask, vpcsTask);
+
+            audit = auditTask.Result ?? new();
+            vpcs = vpcsTask.Result ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load security data: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

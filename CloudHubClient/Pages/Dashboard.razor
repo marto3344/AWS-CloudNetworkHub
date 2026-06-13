@@ -1,0 +1,156 @@
+﻿@page "/"
+@inject HttpClient Http
+
+<h3>Dashboard</h3>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title">Running Instances</h6>
+                    <h2>@instances.Count(i => i.Status == "running")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h6 class="card-title">Stopped Instances</h6>
+                    <h2>@instances.Count(i => i.Status == "stopped")</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white @(dangerousGroups > 0 ? "bg-danger" : "bg-success")">
+                <div class="card-body">
+                    <h6 class="card-title">Dangerous Security Groups</h6>
+                    <h2>@dangerousGroups</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title">Total Instances</h6>
+                    <h2>@instances.Count()</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AWS Status -->
+    <div class="alert @(awsStatus?.IsConnected == true ? "alert-success" : "alert-danger") mb-4">
+        @if (awsStatus?.IsConnected == true)
+        {
+            <strong>Connected to AWS</strong> 
+            <p>
+                Account: @awsStatus.AccountId User ID @awsStatus.UserId 
+            </p>
+        }
+        else
+        {
+            <strong>Disconnected from AWS</strong>
+        }
+    </div>
+
+    <!-- Instances Table -->
+    <h5>Instances</h5>
+    <table class="table table-dark table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Instance ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Public IP</th>
+                <th>Private IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var instance in instances)
+            {
+                <tr>
+                    <td>@instance.Name</td>
+                    <td><code>@instance.InstanceId</code></td>
+                    <td>@instance.InstanceType</td>
+                    <td>
+                        <span class="badge @GetStatusBadge(instance.Status)">
+                            @instance.Status
+                        </span>
+                    </td>
+                    <td>@(instance.PublicIpAddress ?? "—")</td>
+                    <td>@(instance.PrivateIpAddress ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Dangerous Security Groups -->
+    @if (dangerousGroups > 0)
+    {
+        <h5 class="text-danger mt-4">⚠ Dangerous Security Groups</h5>
+        @foreach (var sg in audit.Where(a => a.IsDangerous))
+        {
+            <div class="alert alert-danger">
+                <strong>@sg.GroupName</strong> <code>@sg.GroupId</code>
+                <ul class="mb-0 mt-2">
+                    @foreach (var rule in sg.DangerousRules)
+                    {
+                        <li>@rule.Reason (port @rule.FromPort · @rule.CidrRange)</li>
+                    }
+                </ul>
+            </div>
+        }
+    }
+}
+
+@code {
+    private List<Ec2Instance> instances = new();
+    private List<SecurityGroupAudit> audit = new();
+    private AwsStatus? awsStatus;
+    private int dangerousGroups => audit.Count(a => a.IsDangerous);
+    private bool loading = true;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var instancesTask = Http.GetFromJsonAsync<List<Ec2Instance>>("api/infrastructure/instances");
+            var auditTask = Http.GetFromJsonAsync<List<SecurityGroupAudit>>("api/security/audit");
+            var awsTask = Http.GetFromJsonAsync<AwsStatus>("api/system/aws-status");
+
+            await Task.WhenAll(instancesTask, auditTask, awsTask);
+
+            instances = instancesTask.Result ?? new();
+            audit = auditTask.Result ?? new();
+            awsStatus = awsTask.Result;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load dashboard: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetStatusBadge(string status) => status?.ToLower() switch
+    {
+        "running" => "bg-success",
+        "stopped" => "bg-danger",
+        "pending" => "bg-warning",
+        _ => "bg-secondary"
+    };
+}

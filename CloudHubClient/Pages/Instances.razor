@@ -1,0 +1,155 @@
+﻿@page "/instances"
+@inject HttpClient Http
+
+<h3>Instances</h3>
+
+@if (loading)
+{
+    <p>Loading...</p>
+}
+else if (error != null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+else
+{
+    @if (message != null)
+    {
+        <div class="alert @messageClass alert-dismissible">
+            @message
+            <button type="button" class="btn-close" @onclick="() => message = null"></button>
+        </div>
+    }
+
+    <table class="table table-dark table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Instance ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Public IP</th>
+                <th>Launch Time</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var instance in instances)
+            {
+                <tr>
+                    <td>@instance.Name</td>
+                    <td><code>@instance.InstanceId</code></td>
+                    <td>@instance.InstanceType</td>
+                    <td>
+                        <span class="badge @GetStatusBadge(instance.Status)">
+                            @instance.Status
+                        </span>
+                    </td>
+                    <td>@(instance.PublicIpAddress ?? "—")</td>
+                    @* <td>@(instance.LaunchTime?.ToString("dd.MM.yyyy HH:mm") ?? "—")</td> *@
+                    <td>
+                        <button class="btn btn-sm btn-success me-1"
+                                disabled="@(instance.Status == "running" || actionInProgress == instance.InstanceId)"
+                                @onclick="() => StartInstance(instance.InstanceId)">
+                            Start
+                        </button>
+                        <button class="btn btn-sm btn-danger me-1"
+                                disabled="@(instance.Status == "stopped" || actionInProgress == instance.InstanceId)"
+                                @onclick="() => StopInstance(instance.InstanceId)">
+                            Stop
+                        </button>
+                        <button class="btn btn-sm btn-warning"
+                                disabled="@(instance.Status != "running" || actionInProgress == instance.InstanceId)"
+                                @onclick="() => RebootInstance(instance.InstanceId)">
+                            Reboot
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Ec2Instance> instances = new();
+    private bool loading = true;
+    private string? error;
+    private string? message;
+    private string? messageClass;
+    private string? actionInProgress;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInstances();
+    }
+
+    private async Task LoadInstances()
+    {
+        try
+        {
+            loading = true;
+            instances = await Http.GetFromJsonAsync<List<Ec2Instance>>("api/infrastructure/instances") ?? new();
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to load instances: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task StartInstance(string id)
+    {
+        await PerformAction(id, "start", "Instance is starting.", "alert-success");
+    }
+
+    private async Task StopInstance(string id)
+    {
+        await PerformAction(id, "stop", "Instance is stopping.", "alert-warning");
+    }
+
+    private async Task RebootInstance(string id)
+    {
+        await PerformAction(id, "reboot", "Instance is rebooting.", "alert-warning");
+    }
+
+    private async Task PerformAction(string id, string action, string successMessage, string cssClass)
+    {
+        try
+        {
+            actionInProgress = id;
+            var res = await Http.PostAsync($"api/infrastructure/instances/{id}/{action}", null);
+
+            if (res.IsSuccessStatusCode)
+            {
+                message = successMessage;
+                messageClass = cssClass;
+                await LoadInstances(); 
+            }
+            else
+            {
+                message = $"Action failed: {res.StatusCode}";
+                messageClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error: {ex.Message}";
+            messageClass = "alert-danger";
+        }
+        finally
+        {
+            actionInProgress = null;
+        }
+    }
+
+    private string GetStatusBadge(string status) => status?.ToLower() switch
+    {
+        "running" => "bg-success",
+        "stopped" => "bg-danger",
+        "pending" => "bg-warning",
+        _ => "bg-secondary"
+    };
+}

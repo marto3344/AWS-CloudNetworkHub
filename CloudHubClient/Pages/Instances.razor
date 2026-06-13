@@ -46,7 +46,7 @@ else
                         </span>
                     </td>
                     <td>@(instance.PublicIpAddress ?? "—")</td>
-                    @* <td>@(instance.LaunchTime?.ToString("dd.MM.yyyy HH:mm") ?? "—")</td> *@
+                    <td>@(instance.LaunchTime?.ToString("dd.MM.yyyy HH:mm") ?? "—")</td>
                     <td>
                         <button class="btn btn-sm btn-success me-1"
                                 disabled="@(instance.Status == "running" || actionInProgress == instance.InstanceId)"
@@ -126,7 +126,7 @@ else
             {
                 message = successMessage;
                 messageClass = cssClass;
-                await LoadInstances(); 
+                await PollUntilStable(id);
             }
             else
             {
@@ -152,4 +152,22 @@ else
         "pending" => "bg-warning",
         _ => "bg-secondary"
     };
+    private async Task PollUntilStable(string id)
+    {
+        var retries = 10;
+        for (int i = 0; i < retries; i++) 
+        {
+            await Task.Delay(1000); 
+            await LoadInstances();
+            StateHasChanged();
+
+            var instance = instances.FirstOrDefault(x => x.InstanceId == id);
+            if (instance?.Status is "running" or "stopped")
+            {
+                message = null;
+                return;
+            }
+        }
+    }
+
 }

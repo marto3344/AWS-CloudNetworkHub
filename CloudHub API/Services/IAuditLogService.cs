@@ -1,4 +1,4 @@
-﻿using CloudHub_API.Models;
+﻿using CloudHub.Shared.Models;
 
 namespace CloudHub_API.Services;
 

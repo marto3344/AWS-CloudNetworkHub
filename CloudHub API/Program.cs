@@ -20,7 +20,16 @@ builder.Services.AddScoped<ISystemStatusService, SystemStatusService>();
 builder.Services.AddScoped<ISecurityAuditService, SecurityAuditService>();
 builder.Services.AddScoped<ITrafficService, TrafficService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevPolicy", policy =>
+    {
+        policy.WithOrigins(  "https://localhost:7172", 
+                "http://localhost:5187")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -28,6 +37,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
+    app.UseCors("DevPolicy");
 }
 
 app.UseHttpsRedirection();

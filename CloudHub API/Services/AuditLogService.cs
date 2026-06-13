@@ -1,6 +1,6 @@
 ﻿using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using CloudHub_API.Models;
+using CloudHub.Shared.Models;
 
 namespace CloudHub_API.Services;
 

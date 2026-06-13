@@ -1,4 +1,4 @@
-﻿namespace CloudHub_API.Models;
+﻿namespace CloudHub.Shared.Models;
 
 public class SubnetDto
 {

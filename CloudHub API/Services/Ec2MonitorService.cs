@@ -1,6 +1,6 @@
 ﻿using Amazon.EC2;
 using Amazon.EC2.Model;
-using CloudHub_API.Models;
+using CloudHub.Shared.Models;
 
 namespace CloudHub_API.Services;
 

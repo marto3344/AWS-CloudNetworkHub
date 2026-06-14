@@ -46,6 +46,8 @@ public class Ec2MonitorService (
                     InstanceType = instance.InstanceType ?? "Unknown",
                     PublicIpAddress = instance.PublicIpAddress,
                     PrivateIpAddress = instance.PrivateIpAddress,
+                    PublicDnsName =  instance.PublicDnsName,
+                    Ipv6Address = instance.Ipv6Address,
                     LaunchTime = instance.LaunchTime
                 });
             }

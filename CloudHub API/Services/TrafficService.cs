@@ -18,7 +18,7 @@ public class TrafficService(
             var to = DateTime.UtcNow;
             var from = to.AddHours(-hours);
 
-            var tasks = instances.Select(i => GetInstanceMetricsAsync(i, from, to));
+            var tasks = instances.Select(i => GetInstanceMetricsAsync(i, from, to, hours));
             return await Task.WhenAll(tasks);
         }
         catch (AmazonCloudWatchException awsEx)
@@ -33,10 +33,10 @@ public class TrafficService(
         }
     }
 
-    public async Task<NetworkMetrics> GetInstanceMetricsAsync(Ec2Instance instance, DateTime from, DateTime to)
+    public async Task<NetworkMetrics> GetInstanceMetricsAsync(Ec2Instance instance, DateTime from, DateTime to, int hours)
     {
        
-        var queries = GetMetricQueries(instance.InstanceId, from, to);
+        var queries = GetMetricQueries(instance.InstanceId, hours);
         var req = new GetMetricDataRequest
         {
             MetricDataQueries = queries,
@@ -67,30 +67,34 @@ public class TrafficService(
         };
     }
 
-    private List<MetricDataQuery> GetMetricQueries(string instanceId, DateTime from, DateTime to)
+    private List<MetricDataQuery> GetMetricQueries(string instanceId, int hours)
     {
-        var metricNames = new[]
+        var metrics = new[]
         {
-            "cpuutilization",
-            "networkin", "networkout",
-            "networkpacketsin", "networkpacketsout",
-            "diskreadbytes", "diskwritebytes",
-            "diskreadops", "diskwriteops"
+            ("CPUUtilization", "Average"),
+            ("NetworkIn", "Sum"),
+            ("NetworkOut", "Sum"),
+            ("NetworkPacketsIn", "Sum"),
+            ("NetworkPacketsOut", "Sum"),
+            ("DiskReadBytes", "Sum"),
+            ("DiskWriteBytes", "Sum"),
+            ("DiskReadOps", "Sum"),
+            ("DiskWriteOps", "Sum"),
         };
 
-        return metricNames.Select(metricName => new MetricDataQuery
+        return metrics.Select(m => new MetricDataQuery
         {
-            Id = metricName, 
+            Id = m.Item1.ToLower(), 
             MetricStat = new MetricStat
             {
                 Metric = new Metric
                 {
                     Namespace = "AWS/EC2",
-                    MetricName = metricName,
+                    MetricName = m.Item1,
                     Dimensions = [new Dimension { Name = "InstanceId", Value = instanceId }]
                 },
-                Period = (int)(to - from).TotalSeconds,
-                Stat = "Sum"
+                Period = hours*3600,
+                Stat = m.Item2
             }
         }).ToList();
     }

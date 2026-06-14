@@ -29,6 +29,8 @@ else
                 <th>Type</th>
                 <th>Status</th>
                 <th>Public IP</th>
+                <th>Public DNS</th>
+                <th>IPv6</th>
                 <th>Launch Time</th>
                 <th>Actions</th>
             </tr>
@@ -46,8 +48,11 @@ else
                         </span>
                     </td>
                     <td>@(instance.PublicIpAddress ?? "—")</td>
+                    <td>@(instance.PublicDnsName ?? "—")</td>
+                    <td>@(instance.Ipv6Address ?? "—")</td>
                     <td>@(instance.LaunchTime?.ToString("dd.MM.yyyy HH:mm") ?? "—")</td>
-                    <td>
+                    <td class="align-middle">
+                        <div class="d-flex gap-1">
                         <button class="btn btn-sm btn-success me-1"
                                 disabled="@(instance.Status == "running" || actionInProgress == instance.InstanceId)"
                                 @onclick="() => StartInstance(instance.InstanceId)">
@@ -58,11 +63,12 @@ else
                                 @onclick="() => StopInstance(instance.InstanceId)">
                             Stop
                         </button>
-                        <button class="btn btn-sm btn-warning"
-                                disabled="@(instance.Status != "running" || actionInProgress == instance.InstanceId)"
-                                @onclick="() => RebootInstance(instance.InstanceId)">
+                        <button class="btn btn-sm btn-warning me-1"
+                            disabled="@(instance.Status != "running" || actionInProgress == instance.InstanceId)"
+                            @onclick="() => RebootInstance(instance.InstanceId)">
                             Reboot
-                        </button>
+                         </button>
+                        </div>
                     </td>
                 </tr>
             }
@@ -126,6 +132,7 @@ else
             {
                 message = successMessage;
                 messageClass = cssClass;
+                StateHasChanged();
                 await PollUntilStable(id);
             }
             else
@@ -154,10 +161,10 @@ else
     };
     private async Task PollUntilStable(string id)
     {
-        var retries = 10;
+        var retries = 20;
         for (int i = 0; i < retries; i++) 
         {
-            await Task.Delay(1000); 
+            await Task.Delay(2000); 
             await LoadInstances();
             StateHasChanged();
 
